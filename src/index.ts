@@ -1,23 +1,27 @@
 import express, {Application, Request, Response} from 'express';
-import puppeteer from "puppeteer";
+import puppeteer, {Page} from "puppeteer";
 import {InstaManagerService} from "./services/insta_manager.service";
 import {config} from "./configs/config"
 
+const initializationPuppeteer = async () => {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(config.instagram.domain);
+    return page;
+}
 
 (async () => {
     try {
-        // INITIAL PUPPETEER
-        const browser = await puppeteer.launch();
-        const page = await browser.newPage();
-        await page.goto(config.instagram.domain);
+        // INITIALIZATION PUPPETEER
+        let instLoginPage = await initializationPuppeteer();
 
-        // INITIAL INSTA-MANAGER-SERVICE
+        // INITIALIZATION INSTA-MANAGER-SERVICE
         const instaManagerService = new InstaManagerService(config.instagram.domain);
-        await instaManagerService.login(
-            page,
-            config.instagram.credentials.username,
-            config.instagram.credentials.password
-        );
+        // await instaManagerService.login(
+        //     instLoginPage,
+        //     config.instagram.credentials.username,
+        //     config.instagram.credentials.password
+        // );
 
         // START SERVER
         const server: Application = express();
@@ -47,12 +51,23 @@ import {config} from "./configs/config"
 
                 // RETURN UNFOLLOWED USERS
                 res.json(unfollowed);
-            } catch (e) {
-                console.log(e)
+            } catch (error: any) {
+                if(error.message.includes(500) || error.message.includes(401)) {
+                    console.log('HELLO ERROR 401')
+                    instLoginPage = await initializationPuppeteer();
+                    await instaManagerService.login(
+                        instLoginPage,
+                        config.instagram.credentials.username,
+                        config.instagram.credentials.password,
+                    );
+                    res.json('Sorry about this! Try again please!')
+                } else {
+                    res.json(error.message);
+                }
             }
         });
         server.listen(config.port, () => console.log(`Server is Running 👉`))
-    } catch (e) {
-        throw e;
+    } catch (error) {
+        throw error;
     }
 })()
