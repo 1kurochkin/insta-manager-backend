@@ -1,7 +1,12 @@
 import {ElementHandle, Page} from "puppeteer";
 import axios from "axios";
 
-type Follower = {username: string, profile_pic_url: string, full_name: string}
+export type Follower = { username: string, profile_pic_url: string, full_name: string }
+export type GetFollowersResponse = {
+    count: number,
+    page_info: {has_next_page: boolean, end_cursor: any}
+    edges: Array<{ node: Follower }>
+}
 
 export class InstaManagerService {
     private cookies: string | undefined;
@@ -13,21 +18,23 @@ export class InstaManagerService {
 
     private async fetch(url: string) {
         return axios(
-            `${this.domain}/api/v1/${url}`,
+            `${this.domain}/${url}`,
             {
                 headers: {'x-ig-app-id': this.appId, "cookie": this.cookies},
             }
         )
     }
+
     private setCookies(cookies: Array<any>) {
         const cookiesArray = []
         for (const {name, value} of cookies) {
-            if(name === 'sessionid' || name === 'ds_user_id') {
+            if (name === 'sessionid' || name === 'ds_user_id') {
                 cookiesArray.push(`${name}=${value};`)
             }
         }
         this.cookies = cookiesArray.join(' ')
     }
+
     private setAppId(appId: string) {
         this.appId = appId;
     }
@@ -37,12 +44,12 @@ export class InstaManagerService {
         const usernameInput = await loginPage.waitForSelector("input[name='username']");
         // @ts-ignore
         const passwordInput = await loginPage.waitForSelector("input[name='password']");
-        if(usernameInput && passwordInput) {
+        if (usernameInput && passwordInput) {
             await usernameInput.type(username);
             await passwordInput.type(password);
-            loginPage.on('request', (req:any) => {
+            loginPage.on('request', (req: any) => {
                 const {'x-ig-app-id': appId} = req.headers();
-                if(appId) {
+                if (appId) {
                     this.setAppId(appId)
                     loginPage.removeAllListeners('request')
                 }
@@ -54,34 +61,48 @@ export class InstaManagerService {
             this.setCookies(await loginPage.cookies());
         } else throw 'There are not inputs for sign in!'
     }
-    async getUserInfo (nickname: string) {
-        const response = await this.fetch(`users/web_profile_info/?username=${nickname}`);
+
+    async getUserInfo(nickname: string) {
+        const response = await this.fetch(`api/v1/users/web_profile_info/?username=${nickname}`);
         return response.data.data.user;
     }
-    async getFollowers (userId: string, take:number, page:number) {
-        const response = await this.fetch(`friendships/${userId}/followers/?count=${take}&max_id=${take * page}&search_surface=follow_list_page`);
-        return response.data.users;
+
+    async getFollowers(userId: string, lastUserId: string | null): Promise<GetFollowersResponse> {
+        const variables = encodeURIComponent(
+            JSON.stringify({
+                id: userId,
+                include_reel: true,
+                fetch_mutual: true,
+                first: 50,
+                after: lastUserId,
+            })
+        );
+        const {data: {data: {user: {edge_followed_by}}}} = await this.fetch(`graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=${variables}`);
+        return edge_followed_by;
     }
-    async getFollowings (userId: string, take:number, page:number) {
-        const response = await this.fetch(`friendships/${userId}/following/?count=${take}&max_id=${take * page}`);
-        return response.data.users;
+
+    async getFollowings(userId: string, lastUserId: string): Promise<GetFollowersResponse> {
+        const variables = encodeURIComponent(
+            JSON.stringify({
+                id: userId,
+                include_reel: true,
+                fetch_mutual: true,
+                first: 50,
+                after: lastUserId,
+            })
+        );
+        const {data: {data: {user: {edge_follow}}}} = await this.fetch(`graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables=${variables}`);
+        return edge_follow;
     }
-    async getUnfollowed (followers: Array<Follower>, following: Array<Follower>) {
+
+    async getUnfollowed(followers: Array<Follower>, following: Array<Follower>) {
         const setOfFollowers = new Set(followers.map(follower => follower.username));
         return following.reduce((acc, following) => {
-            if(!setOfFollowers.has(following.username)) {
+            if (!setOfFollowers.has(following.username)) {
                 const {username, profile_pic_url, full_name} = following;
                 acc.push({username, profile_pic_url, full_name})
             }
             return acc;
         }, [] as Array<any>);
-    }
-    getHowManyTakeFromEachRequest(count:number) {
-        const TAKE = 100;
-       const [firstCountForTakeBy100, lastCountForTake] = `${count / TAKE}`.split('.');
-       return [
-           ...new Array(Number(firstCountForTakeBy100)).fill(TAKE),
-           Number(lastCountForTake)
-       ];
     }
 }
