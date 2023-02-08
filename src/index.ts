@@ -1,7 +1,7 @@
 import express, {Application, Request, Response} from 'express';
 import puppeteer from "puppeteer";
 import {Follower, InstaManagerService} from "./services/insta_manager.service";
-import {config} from "./configs/config"
+import appConfig from "./configs/app.config.json"
 const cors = require('cors');
 
 
@@ -21,7 +21,7 @@ export type GetUnfollowedResponseType = {
 const initializationPuppeteer = async () => {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
-    await page.goto(config.instagram.domain);
+    await page.goto(appConfig.instagram.domain);
     return page;
 }
 
@@ -31,11 +31,11 @@ const initializationPuppeteer = async () => {
         let instLoginPage = await initializationPuppeteer();
 
         // INITIALIZATION INSTA-MANAGER-SERVICE
-        const instaManagerService = new InstaManagerService(config.instagram.domain);
+        const instaManagerService = new InstaManagerService(appConfig.instagram.domain);
         await instaManagerService.login(
             instLoginPage,
-            config.instagram.credentials.username,
-            config.instagram.credentials.password
+            appConfig.instagram.credentials.username,
+            appConfig.instagram.credentials.password
         );
 
         // START SERVER
@@ -73,8 +73,8 @@ const initializationPuppeteer = async () => {
                             instLoginPage = await initializationPuppeteer();
                             await instaManagerService.login(
                                 instLoginPage,
-                                config.instagram.credentials.username,
-                                config.instagram.credentials.password,
+                                appConfig.instagram.credentials.username,
+                                appConfig.instagram.credentials.password,
                             );
                             // @ts-ignore
                             response = await instaManagerService[methodName](userId, lastUserId);
@@ -109,7 +109,7 @@ const initializationPuppeteer = async () => {
                 res.json(error.message);
             }
         });
-        server.listen(config.port, () => console.log(`Server is Running 👉`))
+        server.listen(appConfig.port, () => console.log(`Server is Running 👉`))
     } catch (error) {
         throw error;
     }
