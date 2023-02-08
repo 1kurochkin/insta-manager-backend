@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": { 
     "start:dev": "IS_PROD=0 ts-node src/index.ts",
-    "start:prod": "IS_PROD=1 ts-node src/index.ts",
+    "build": "rimraf build && tsc -p tsconfig.json",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
