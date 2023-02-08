@@ -2,6 +2,21 @@ import express, {Application, Request, Response} from 'express';
 import puppeteer from "puppeteer";
 import {Follower, InstaManagerService} from "./services/insta_manager.service";
 import {config} from "./configs/config"
+const cors = require('cors');
+
+
+export type GetUnfollowedResponseType = {
+    user_info: {
+        followers_count: number;
+        followings_count: number;
+        unfollowed_count: number;
+    },
+    unfollowed_list: Array<{
+        username: string;
+        profile_pic_url: string;
+        full_name: string;
+    }>
+}
 
 const initializationPuppeteer = async () => {
     const browser = await puppeteer.launch();
@@ -26,12 +41,17 @@ const initializationPuppeteer = async () => {
         // START SERVER
         const server: Application = express();
         server.use(express.json())
+        server.use(cors({origin: Number(process.env.IS_PROD) ? [] : '*'}));
 
-        server.post("/check", async (req: Request, res: Response) => {
-            const {nickname} = req.body;
+        const router = express.Router()
+        server.use('/api', router)
+
+        router.get("/unfollowed/:username", async (req: Request, res: Response): Promise<GetUnfollowedResponseType | Express.Response | undefined> => {
+            const {username} = req.params;
             try {
                 //GET USERINFO FOR TAKE ID AND GET KNOW HOW MANY FOLLOWERS AND FOLLOWINGS USER HAS
-                const {id: userId} = await instaManagerService.getUserInfo(nickname);
+                const {id: userId} = await instaManagerService.getUserInfo(username);
+                if(!userId) return res.status(404)
 
                 //GET ALL FOLLOWERS THAT USER HAS
                 let followers: Array<Follower> = [];
@@ -76,7 +96,14 @@ const initializationPuppeteer = async () => {
                 //COMPARE FOLLOWERS AND FOLLOWINGS FOR GET KNOW WHO UNFOLLOWED
                 const unfollowed = await instaManagerService.getUnfollowed(followers, followings);
                 //RETURN UNFOLLOWED USERS
-                res.json(unfollowed);
+                return res.json({
+                    user_info: {
+                        followers_count: followers.length,
+                        followings_count: followings.length,
+                        unfollowed_count: unfollowed.length,
+                    },
+                    unfollowed_list: unfollowed
+                });
             } catch (error: any) {
                 console.log(error);
                 res.json(error.message);
