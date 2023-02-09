@@ -58,13 +58,28 @@ export class InstaManagerService {
                 (document.querySelector('button[type=submit]') as unknown as ElementHandle).click();
             });
             await new Promise(r => setTimeout(r, 5000));
-            this.setCookies(await loginPage.cookies());
+            await loginPage.screenshot({
+                path: "../screenshot.jpg"
+            })
+            const cookies = await loginPage.cookies();
+            console.log(cookies, 'login');
+            
+            this.setCookies(cookies);
         } else throw 'There are not inputs for sign in!'
     }
 
     async getUserInfo(nickname: string) {
+        // const response = await this.fetch(`${nickname}`);
+        // const {data} = response;
+        // const indexOfProfileId = data.lastIndexOf("profile_id\":\"");
+        // const userId = data.substring(
+        //     indexOfProfileId + 13,
+        //     indexOfProfileId + 13 + 11
+        // );
         const response = await this.fetch(`api/v1/users/web_profile_info/?username=${nickname}`);
         return response.data.data.user;
+    
+        // return userId;
     }
 
     async getFollowers(userId: string, lastUserId: string | null): Promise<GetFollowersResponse> {

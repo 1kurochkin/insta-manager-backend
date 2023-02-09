@@ -21,6 +21,8 @@ export type GetUnfollowedResponseType = {
 const initializationPuppeteer = async () => {
     const browser = await puppeteer.launch({args: ['--no-sandbox']});
     const page = await browser.newPage();
+    await page.setViewport({width: 1366, height: 768});
+    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36');
     await page.goto(appConfig.instagram.domain);
     return page;
 }
@@ -29,7 +31,7 @@ const initializationPuppeteer = async () => {
     try {
         // INITIALIZATION PUPPETEER
         let instLoginPage = await initializationPuppeteer();
-
+ 
         // INITIALIZATION INSTA-MANAGER-SERVICE
         const instaManagerService = new InstaManagerService(appConfig.instagram.domain);
         await instaManagerService.login(
@@ -70,14 +72,14 @@ const initializationPuppeteer = async () => {
                         } = response;
                         // IF GOT PROBLEMS WITH AUTHORIZATION
                         if (end_cursor === null && edges.length === 0) {
-                            instLoginPage = await initializationPuppeteer();
-                            await instaManagerService.login(
-                                instLoginPage,
-                                appConfig.instagram.credentials.username,
-                                appConfig.instagram.credentials.password,
-                            );
+                            // instLoginPage = await initializationPuppeteer();
+                            // await instaManagerService.login(
+                            //     instLoginPage,
+                            //     appConfig.instagram.credentials.username,
+                            //     appConfig.instagram.credentials.password,
+                            // );
                             // @ts-ignore
-                            response = await instaManagerService[methodName](userId, lastUserId);
+                            // response = await instaManagerService[methodName](userId, lastUserId);
                         }
                         const preparedUsers = edges.map(
                             ({node: {username, profile_pic_url, full_name}}: { node: Follower }) => ({
@@ -93,6 +95,8 @@ const initializationPuppeteer = async () => {
                         lastUserId = end_cursor;
                     }
                 }
+                console.log(followers.length, followings.length);
+                
                 //COMPARE FOLLOWERS AND FOLLOWINGS FOR GET KNOW WHO UNFOLLOWED
                 const unfollowed = await instaManagerService.getUnfollowed(followers, followings);
                 //RETURN UNFOLLOWED USERS
