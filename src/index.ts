@@ -1,12 +1,11 @@
 import express, { Application, Request, Response } from "express";
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import { executablePath } from "puppeteer";
-import {
-  Follower,
-  InstaManagerService,
-} from "./services/insta_manager.service";
+import firebaseAdmin from "firebase-admin";
 import appConfig from "./configs/app.config.json";
+import firebaseConfig from "./configs/firebase.config.json";
+import {
+    Follower,
+    InstaManagerService,
+} from "./services/insta_manager.service";
 const cors = require("cors");
 
 export type GetUnfollowedResponseType = {
@@ -22,38 +21,28 @@ export type GetUnfollowedResponseType = {
   }>;
 };
 
-const initializationPuppeteer = async () => {
-  puppeteer.use(StealthPlugin());
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox"],
-    executablePath: executablePath(),
-  });
-  const page = await browser.newPage();
-  await page.setViewport({
-    width: 1920,
-    height: 1280,
-    deviceScaleFactor: 1,
-  });
-  // await page.setViewport({width: 1366, height: 768});
-  // await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36');
-  await page.goto(appConfig.instagram.domain);
-  return page;
+type RemoteConfigType = {
+  appId: { defaultValue: { value: string } };
+  cookies: { defaultValue: { value: string } };
 };
 
 (async () => {
   try {
-    // INITIALIZATION PUPPETEER
-    let instLoginPage = await initializationPuppeteer();
+    // Initialize Firebase
+    firebaseAdmin.initializeApp({
+      //@ts-ignore
+      credential: firebaseAdmin.credential.cert(firebaseConfig),
+    });
+
+    // Get Firebase Remote config
+    const { parameters } = await firebaseAdmin.remoteConfig().getTemplate();
+    const { appId, cookies } = parameters as RemoteConfigType;
 
     // INITIALIZATION INSTA-MANAGER-SERVICE
     const instaManagerService = new InstaManagerService(
-      appConfig.instagram.domain
-    );
-    await instaManagerService.login(
-      instLoginPage,
-      appConfig.instagram.credentials.username,
-      appConfig.instagram.credentials.password
+      appConfig.instagram.domain,
+      appId.defaultValue.value,
+      cookies.defaultValue.value
     );
 
     // START SERVER
@@ -99,14 +88,6 @@ const initializationPuppeteer = async () => {
               } = response;
               // IF GOT PROBLEMS WITH AUTHORIZATION
               if (end_cursor === null && edges.length === 0) {
-                // instLoginPage = await initializationPuppeteer();
-                // await instaManagerService.login(
-                //     instLoginPage,
-                //     appConfig.instagram.credentials.username,
-                //     appConfig.instagram.credentials.password,
-                // );
-                // @ts-ignore
-                // response = await instaManagerService[methodName](userId, lastUserId);
               }
               const preparedUsers = edges.map(
                 ({
