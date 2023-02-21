@@ -73,9 +73,10 @@ type RemoteConfigType = {
           const loopConfig = ["getFollowers", "getFollowings"];
           for (const methodName of loopConfig) {
             let isHasNextPage = true;
-            let lastUserId = null;
+            let lastUserId: null = null;
             while (isHasNextPage) {
-              // @ts-ignore
+              await new Promise(resolve => setTimeout(resolve, 300))
+              //@ts-ignore
               let response = await instaManagerService[methodName](
                 userId,
                 lastUserId
@@ -108,7 +109,6 @@ type RemoteConfigType = {
               lastUserId = end_cursor;
             }
           }
-          console.log(followers.length, followings.length);
 
           //COMPARE FOLLOWERS AND FOLLOWINGS FOR GET KNOW WHO UNFOLLOWED
           const unfollowed = await instaManagerService.getUnfollowed(
